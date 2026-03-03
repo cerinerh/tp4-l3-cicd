@@ -1,0 +1,60 @@
+build_go:
+  stage: build
+  image: golang:1.19   
+  script:
+    - go mod download    
+   
+    - CGO_ENABLED=0 GOOS=linux go build -o /docker-gs-ping  
+
+
+
+
+
+   test_go:
+  stage: test
+  image: golang:1.19
+  script:
+    - go test -v ./...
+    FROM golang:1.19
+COPY docker-gs-ping /docker-gs-ping
+CMD ["/docker-gs-ping"]
+variables:
+  DOCKER_SNAPSHOT_IMAGE: "${CI_REGISTRY_IMAGE}/snapshot:${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHORT_SHA}"
+  DOCKER_RELEASE_IMAGE: "${CI_REGISTRY_IMAGE}/${CI_PROJECT_PATH}-${CI_COMMIT_REF_NAME}"
+
+
+
+
+
+publish_snapshot:
+  stage: publish
+  image:
+    name: gcr.io/kaniko-project/executor:latest
+    entrypoint: [""]
+  script:
+    - /kaniko/executor --dockerfile=Dockerfile --context=$CI_PROJECT_DIR --destination=$DOCKER_SNAPSHOT_IMAGE --cleanup
+  only:
+    - develop
+  when: manual
+
+publish_release:
+  stage: publish
+  image:
+    name: gcr.io/kaniko-project/executor:latest
+    entrypoint: [""]
+  script:
+    - /kaniko/executor --dockerfile=Dockerfile --context=$CI_PROJECT_DIR --destination=$DOCKER_RELEASE_IMAGE --cleanup
+  only:
+    - main
+  when: manual
+
+
+
+
+  workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push"
+
+
+    include:
+  - template: Security/SAST.gitlab-ci.yml
